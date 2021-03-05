@@ -10,13 +10,15 @@ import os
 import csv
 from scipy.spatial.transform import Rotation as R
 
+from Packages.Camera_Scripts.Camera import IntelCamera
+
 use2D   = 0
 logData = 0
 
 if use2D == 1:
-  from cursorUITest_2D import UI
+  from Packages.UITele_Scripts.cursorUITest_2D import UI
 else:
-  from cursorUITest import UI
+  from Packages.UITele_Scripts.cursorUITest import UI
 
 clid = p.connect(p.SHARED_MEMORY)
 if (clid<0):
@@ -26,24 +28,29 @@ p.setAdditionalSearchPath(pybullet_data.getDataPath())
 p.resetSimulation()
 p.configureDebugVisualizer(p.COV_ENABLE_GUI,0)
 
-# to record a video
-#p.startStateLogging(p.STATE_LOGGING_VIDEO_MP4, "~/Repositories/KinovaPyBullet/Movie1.MP4")
+
 
 p.loadURDF("plane.urdf",[0,0,-.65])
 p.loadURDF("table/table.urdf", basePosition=[-0.4,0.0,-0.65])
 # p.loadURDF("tray/tray.urdf",[-0.8,-0.0,0.0])
 
 # assuming we know the pos and orientation of object
-#Obj_Pos = [-0.25, -0.25, 0.1]
+# to have a good record of Roll angle change
+# Obj_Pos = [-0.15, -0.35, 0.2]
+# to have a good record of pitch or yaw angle change
 Obj_Pos = [-0.45, -0.45, 0.2]
 
-# these anges should be the corresponding euler angles for end-effector 
+# these angles should be the corresponding euler angles for end-effector 
 # as Roll change; final value
-#Obj_Ori = [-math.pi/2, 0, 0]
+#Obj_Ori = [-math.pi/3, 0, 0]
 # as Pitch change; final value
-Obj_Ori = [0, math.pi/2, 0]
+#Obj_Ori = [0, math.pi/2, 0]
 # as Yaw change; final value
-# Obj_Ori = [0, 0, math.pi/2]
+#Obj_Ori = [0, 0, -math.pi/2]
+
+# combination of changes in angles
+Obj_Ori = [-math.pi/3, math.pi/2, -math.pi/2]
+
 
 # assuming known final values
 #Obj_Ori = [-math.pi/2, math.pi/2, 0]
@@ -67,11 +74,10 @@ jacoId = p.loadURDF("jaco/j2n6s300.urdf", [0,0,0],  useFixedBase=True)
 basePos = [0,0,0]
 p.resetBasePositionAndOrientation(jacoId,basePos,[0,0,0,1])
 
-#p.resetDebugVisualizerCamera(cameraDistance=0.20, cameraYaw=10, cameraPitch=-30, cameraTargetPosition=[-0.4,-0.35,0.0])
-# to look from the top use the following:
-#p.resetDebugVisualizerCamera(cameraDistance=1.20, cameraYaw=30, cameraPitch=-90, cameraTargetPosition=[-0.6,0.0,0.0])
-
-p.resetDebugVisualizerCamera(cameraDistance=1.20, cameraYaw=20, cameraPitch=-30, cameraTargetPosition=[-0.6,0.0,0.0])
+# to observe the robot from closer view; from a camera view
+Camera_Class = IntelCamera('NameofVideoIsHere')
+# to record a video from this camera; uncomment the line in the method to record
+Camera_Class.video()
 
 jacoEndEffectorIndex = 8
 numJoints = 10
@@ -84,7 +90,7 @@ jd = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
 # inital angle positions consider from the second one 
 rp = [0, math.pi/4, math.pi, 1.0*math.pi, 1.8*math.pi, 0*math.pi, 1.75*math.pi, 0.5*math.pi]
 
-# upper and lower bands for positions
+# upper and lower bands for positioning of the end-effector
 wu = [0.1, 0.5, 0.5]
 wl = [-.66, -.5, 0.00]
 
@@ -193,6 +199,8 @@ while 1:
   if delta > inputRate:
     #print(delta) 
     updateT= time.time()
+    # also record the image of our camera with this rate
+     
 
     if logData:
       lsr = p.getLinkState(jacoId, jacoEndEffectorIndex)
@@ -339,13 +347,13 @@ while 1:
     #Rn = R.from_matrix(Rnew)
     #orn = Rn.as_quat()
     
-    # adjust the orientation for automated grasping
+    # adjust the orientation for automated grasping; a function of Cartesian not time!
     if Convg_Rate <= 1:
-      #Roll = Roll_0 + (1-Convg_Rate)*(Roll_f-Roll_0)
+      Roll = Roll_0 + (1-Convg_Rate)*(Roll_f-Roll_0)
       Pitch = Pitch_0 + (1-Convg_Rate)*(Pitch_f-Pitch_0)
-      #Yaw = Yaw_0 + (1-Convg_Rate)*(Yaw_f-Yaw_0)
+      Yaw = Yaw_0 + (1-Convg_Rate)*(Yaw_f-Yaw_0)
       #print(Roll)
-      orn = p.getQuaternionFromEuler([Roll_0, Pitch, Yaw_0])
+      orn = p.getQuaternionFromEuler([Roll, Pitch, Yaw])
     else:
       orn = orn
 
