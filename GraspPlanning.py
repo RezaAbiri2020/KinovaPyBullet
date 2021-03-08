@@ -26,9 +26,6 @@ if (clid<0):
 
 p.setAdditionalSearchPath(pybullet_data.getDataPath())
 p.resetSimulation()
-p.configureDebugVisualizer(p.COV_ENABLE_GUI,0)
-
-
 
 p.loadURDF("plane.urdf",[0,0,-.65])
 p.loadURDF("table/table.urdf", basePosition=[-0.4,0.0,-0.65])
@@ -38,7 +35,7 @@ p.loadURDF("table/table.urdf", basePosition=[-0.4,0.0,-0.65])
 # to have a good record of Roll angle change
 # Obj_Pos = [-0.15, -0.35, 0.2]
 # to have a good record of pitch or yaw angle change
-Obj_Pos = [-0.45, -0.45, 0.2]
+Obj_Pos = [-0.3, -0.3, 0.2]
 
 # these angles should be the corresponding euler angles for end-effector 
 # as Roll change; final value
@@ -181,7 +178,9 @@ if logData:
   logFile = open(fn, 'w', newline = '')
   fileObj = csv.writer(logFile)
 
+
 while 1:
+ 
   
   i+=1
   if (useRealTimeSimulation):
@@ -195,13 +194,15 @@ while 1:
 
   delta = time.time() - updateT
   #print(delta) 
+  
 
   if delta > inputRate:
     #print(delta) 
     updateT= time.time()
-    # also record the image of our camera with this rate
-     
-
+    # Render and record the image info of our camera with using this rate
+    Image_Info = Camera_Class.render()
+    #print(Image_Info)
+    
     if logData:
       lsr = p.getLinkState(jacoId, jacoEndEffectorIndex)
       lsc = p.getBasePositionAndOrientation(cube1Id)
@@ -415,6 +416,10 @@ while 1:
     
     for i in  [9, 11, 13]:
       p.setJointMotorControl2(jacoId, i, p.POSITION_CONTROL, fing)
+    
+    # after one-step move, should render again
+    p.configureDebugVisualizer(p.COV_ENABLE_SINGLE_STEP_RENDERING)
+      
 
   else:
     j = 0

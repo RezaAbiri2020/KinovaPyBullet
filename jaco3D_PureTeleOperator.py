@@ -14,9 +14,9 @@ use2D   = 0
 logData = 0
 
 if use2D == 1:
-  from cursorUITest_2D import UI
+  from Packages.UITele_Scripts.cursorUITest_2D import UI
 else:
-  from cursorUITest import UI
+  from Packages.UITele_Scripts.cursorUITest import UI
 
 clid = p.connect(p.SHARED_MEMORY)
 if (clid<0):
