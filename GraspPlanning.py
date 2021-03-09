@@ -6,6 +6,7 @@ import pybullet_data
 import pygame as pg
 import random
 import numpy as np
+from numpy import savetxt
 import os
 import csv
 from scipy.spatial.transform import Rotation as R
@@ -35,24 +36,30 @@ p.loadURDF("table/table.urdf", basePosition=[-0.4,0.0,-0.65])
 # to have a good record of Roll angle change
 # Obj_Pos = [-0.15, -0.35, 0.2]
 # to have a good record of pitch or yaw angle change
-Obj_Pos = [-0.3, -0.3, 0.2]
+# consider of three objects on a circle
+Obj1_Pos = [-0.45, -0.45, 0.2]
+Obj2_Pos = [-0.64, 0, 0.2]
+Obj3_Pos = [-0.45, 0.45, 0.2]
 
 # these angles should be the corresponding euler angles for end-effector 
-# as Roll change; final value
+# as Roll change; possible final value for grasping 
 #Obj_Ori = [-math.pi/3, 0, 0]
-# as Pitch change; final value
-#Obj_Ori = [0, math.pi/2, 0]
-# as Yaw change; final value
+# as Pitch change; possible final value for grasping 
+Obj_Ori = [0, math.pi/2, 0]
+# as Yaw change; possible final value for grasping 
 #Obj_Ori = [0, 0, -math.pi/2]
 
-# combination of changes in angles
-Obj_Ori = [-math.pi/3, math.pi/2, -math.pi/2]
+# combination of changes in orientation angles
+#Obj_Ori = [-math.pi/3, math.pi/2, -math.pi/2]
 
 
-# assuming known final values
+# assuming known final values of two angles
 #Obj_Ori = [-math.pi/2, math.pi/2, 0]
 
-p.loadURDF("dinnerware/cup/cup_small.urdf",Obj_Pos)
+p.loadURDF("dinnerware/cup/cup_small.urdf",Obj1_Pos)
+p.loadURDF("dinnerware/cup/cup_small.urdf",Obj2_Pos)
+p.loadURDF("dinnerware/cup/cup_small.urdf",Obj3_Pos)
+
 
 #p.loadURDF("dinnerware/plate.urdf",[-0.3,0,0.0])
 #p.loadURDF("cube_small.urdf",[-0.4,0.35,0.0])
@@ -117,26 +124,40 @@ pg.display.set_mode((500,500))
 pg.display.set_caption("Control Interface")
 runUI = UI(logData)
 
+# positions and orientations of end-effector
 pos = list(ls[4])
 orn = list(ls[5])
 
-# define the initial positions of the end-effector to make automated re-orientation
+# grab the initial positions of the end-effector to make automated re-orientation
 X_0 = pos[0]
 Y_0 = pos[1]
 Z_0 = pos[2]
-# define the initial orientations of the end-effector
+# grab the initial euler orientations of the end-effector
 eulOrn = p.getEulerFromQuaternion(orn)
 Roll_0, Pitch_0, Yaw_0 = eulOrn 
 
-# define the final desired positions of the end-effector to make automated re-orientation
-X_f = Obj_Pos[0]
-Y_f = Obj_Pos[1]
-Z_f = Obj_Pos[2]
+# initiate the arrays for concatanate later and saving
+End_Effector_Pos = np.array([pos])
+End_Effector_Orn = np.array([eulOrn])
+
+
+# define the possible final desired positions of the end-effector to make corresponding automated re-orientation
+X_f1 = Obj1_Pos[0]
+Y_f1 = Obj1_Pos[1]
+Z_f1 = Obj1_Pos[2]
+
+X_f2 = Obj2_Pos[0]
+Y_f2 = Obj2_Pos[1]
+Z_f2 = Obj2_Pos[2]
+
+X_f3 = Obj3_Pos[0]
+Y_f3 = Obj3_Pos[1]
+Z_f3 = Obj3_Pos[2]
+
 # define the final desired orientations of the end-effector
 Roll_f = Obj_Ori[0] 
 Pitch_f = Obj_Ori[1]
 Yaw_f = Obj_Ori[2] 
-
 
 
 i=0
@@ -158,10 +179,12 @@ ang = .005
 rot_theta = .008
 inputRate = .05
 
+# for rotation in forward around x, y, z 
 Rx = np.array([[1., 0., 0.],[0., np.cos(rot_theta), -np.sin(rot_theta)], [0., np.sin(rot_theta), np.cos(rot_theta)]])
 Ry = np.array([[np.cos(rot_theta), 0., np.sin(rot_theta)], [0., 1., 0.], [-np.sin(rot_theta), 0., np.cos(rot_theta)]])
 Rz = np.array([[np.cos(rot_theta), -np.sin(rot_theta), 0.], [np.sin(rot_theta), np.cos(rot_theta), 0.], [0., 0., 1.]])
 
+# for rotation in backward around x, y, z
 Rxm = np.array([[1., 0., 0.],[0., np.cos(-rot_theta), -np.sin(-rot_theta)], [0., np.sin(-rot_theta), np.cos(-rot_theta)]])
 Rym = np.array([[np.cos(-rot_theta), 0., np.sin(-rot_theta)], [0., 1., 0.], [-np.sin(-rot_theta), 0., np.cos(-rot_theta)]])
 Rzm = np.array([[np.cos(-rot_theta), -np.sin(-rot_theta), 0.], [np.sin(-rot_theta), np.cos(-rot_theta), 0.], [0., 0., 1.]])
@@ -199,7 +222,7 @@ while 1:
   if delta > inputRate:
     #print(delta) 
     updateT= time.time()
-    # Render and record the image info of our camera with using this rate
+    # Render and record the image info of our camera with using the same rate
     Image_Info = Camera_Class.render()
     #print(Image_Info)
     
@@ -315,8 +338,12 @@ while 1:
         if inputKey == 1:
           pos[2] = pos[2] - dist 
           newPosInput = 1
+        
         # calculate the convergence rate for cartesian
-        Convg_Rate = (np.abs(X_f-pos[0])+np.abs(Y_f-pos[1])+np.abs(Z_f-pos[2]))/(abs(X_f-X_0)+abs(Y_f-Y_0)+abs(Z_f-Z_0))
+        Convg_Rate_Obj1 = (np.abs(X_f1-pos[0])+np.abs(Y_f1-pos[1])+np.abs(Z_f1-pos[2]))/(abs(X_f1-X_0)+abs(Y_f1-Y_0)+abs(Z_f1-Z_0))
+        Convg_Rate_Obj2 = (np.abs(X_f2-pos[0])+np.abs(Y_f2-pos[1])+np.abs(Z_f2-pos[2]))/(abs(X_f2-X_0)+abs(Y_f2-Y_0)+abs(Z_f2-Z_0))
+        Convg_Rate_Obj3 = (np.abs(X_f3-pos[0])+np.abs(Y_f3-pos[1])+np.abs(Z_f3-pos[2]))/(abs(X_f3-X_0)+abs(Y_f3-Y_0)+abs(Z_f3-Z_0))
+        
         #print(Convg_Rate)
 
       if inputMode == 1:
@@ -349,15 +376,26 @@ while 1:
     #orn = Rn.as_quat()
     
     # adjust the orientation for automated grasping; a function of Cartesian not time!
+    Convg_Rate = min([Convg_Rate_Obj1, Convg_Rate_Obj2, Convg_Rate_Obj3])
+
     if Convg_Rate <= 1:
-      Roll = Roll_0 + (1-Convg_Rate)*(Roll_f-Roll_0)
+      #Roll = Roll_0 + (1-Convg_Rate)*(Roll_f-Roll_0)
       Pitch = Pitch_0 + (1-Convg_Rate)*(Pitch_f-Pitch_0)
-      Yaw = Yaw_0 + (1-Convg_Rate)*(Yaw_f-Yaw_0)
+      #Yaw = Yaw_0 + (1-Convg_Rate)*(Yaw_f-Yaw_0)
       #print(Roll)
-      orn = p.getQuaternionFromEuler([Roll, Pitch, Yaw])
+      eulOrn = [Roll_0, Pitch, Yaw_0]
+      orn = p.getQuaternionFromEuler(eulOrn)
     else:
+      eulOrn = eulOrn
       orn = orn
 
+    # record/save the pos and orn for the end-effector with this rate
+    End_Effector_Pos = np.concatenate((End_Effector_Pos, np.array([pos])), axis = 0)
+    End_Effector_Orn = np.concatenate((End_Effector_Orn, np.array([eulOrn])), axis = 0)
+    print(End_Effector_Pos)
+    print(End_Effector_Pos.shape)
+
+    '''
     if pos[0] > wu[0]:
       pos[0] =  wu[0]
     if pos[0] < wl[0]:
@@ -370,7 +408,7 @@ while 1:
       pos[2] =  wu[2]
     if pos[2] < wl[2]:
       pos[2] =  wl[2]
-
+    '''
     if fing > 1.35:
       fing = 1.35
     if fing < 0:
@@ -439,3 +477,8 @@ while 1:
 
 file.close()
 p.disconnect()
+
+# save the kinematics data of end-effector
+# save to csv files
+savetxt('~/Repositories/KinovaPyBullet/Data/End_Effector_Pos.csv', End_Effector_Pos, delimiter=',')
+savetxt('~/Repositories/KinovaPyBullet/Data/End_Effector_Orn.csv', End_Effector_Orn, delimiter=',')

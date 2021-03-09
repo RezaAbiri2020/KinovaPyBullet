@@ -17,7 +17,7 @@ class IntelCamera():
         # to look from the top use the following:
         #p.resetDebugVisualizerCamera(cameraDistance=1.20, cameraYaw=30, cameraPitch=-90, cameraTargetPosition=[-0.6,0.0,0.0])
 
-        p.resetDebugVisualizerCamera(cameraDistance=1.50, cameraYaw=20, cameraPitch=-30, cameraTargetPosition=[-0.6,0.0,0.0])
+        p.resetDebugVisualizerCamera(cameraDistance=1.70, cameraYaw=40, cameraPitch=-45, cameraTargetPosition=[-0.64,0.0,0.0])
         
         # this is to set the OpenGL active (1; default internal value) to show the synthetic cameras or not showing them (0)
         p.configureDebugVisualizer(p.COV_ENABLE_GUI, 1)
