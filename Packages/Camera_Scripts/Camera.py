@@ -1,14 +1,14 @@
 
 import pybullet as p
 import numpy as np
-
-
+import os
+import time 
 
 # consider a camera; record the images; analysis the image to capture necessary 6D object pose or 6D grasp pose 
 
 class IntelCamera():
     
-    def __init__(self, videoname):
+    def __init__(self, videoname, record):
 
         # positioning the camera 
 
@@ -23,13 +23,24 @@ class IntelCamera():
         p.configureDebugVisualizer(p.COV_ENABLE_GUI, 1)
         
         self.videoname = videoname
+        self.record = record
 
 
     def video(self):
-        pass
         # to record a video from this camera uncomment this line
-        #p.startStateLogging(p.STATE_LOGGING_VIDEO_MP4, "~/Repositories/KinovaPyBullet/Movies/"+self.videoname+".MP4")
-        
+        if self.record:
+            if not os.path.exists('Videos'):
+                os.makedirs('Videos')
+            DateDir = time.strftime("%Y%m%d")
+            if not os.path.exists('Videos/'+ DateDir):
+                os.makedirs('Videos/'+ DateDir)
+            
+            Count = len(os.listdir('Videos/'+ DateDir))        
+            p.startStateLogging(p.STATE_LOGGING_VIDEO_MP4, "./Videos/"+DateDir+"/"+self.videoname+"_"+str(Count+1)+".MP4")
+        else:
+            pass
+
+   
     def render(self):
         
         view_matrix = p.computeViewMatrixFromYawPitchRoll(cameraTargetPosition=[-0.45, -0.45, 0.2],

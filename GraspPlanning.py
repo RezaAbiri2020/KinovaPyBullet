@@ -15,6 +15,8 @@ from Packages.Camera_Scripts.Camera import IntelCamera
 
 use2D   = 0
 logData = 0
+# activate record or not record the simulation data/ kinematics data
+SaveData = 1
 
 if use2D == 1:
   from Packages.UITele_Scripts.cursorUITest_2D import UI
@@ -37,20 +39,20 @@ p.loadURDF("table/table.urdf", basePosition=[-0.4,0.0,-0.65])
 # Obj_Pos = [-0.15, -0.35, 0.2]
 # to have a good record of pitch or yaw angle change
 # consider of three objects on a circle
-Obj1_Pos = [-0.45, -0.45, 0.2]
-Obj2_Pos = [-0.64, 0, 0.2]
-Obj3_Pos = [-0.45, 0.45, 0.2]
+Obj1_Pos = [-0.35, -0.35, 0.2]
+Obj2_Pos = [-0.5, 0, 0.2]
+Obj3_Pos = [-0.35, 0.35, 0.2]
 
 # these angles should be the corresponding euler angles for end-effector 
 # as Roll change; possible final value for grasping 
-#Obj_Ori = [-math.pi/3, 0, 0]
+#Obj_Ori = [math.pi/3, 0, 0]
 # as Pitch change; possible final value for grasping 
-Obj_Ori = [0, math.pi/2, 0]
+#Obj_Ori = [0, math.pi/2, 0]
 # as Yaw change; possible final value for grasping 
 #Obj_Ori = [0, 0, -math.pi/2]
 
 # combination of changes in orientation angles
-#Obj_Ori = [-math.pi/3, math.pi/2, -math.pi/2]
+Obj_Ori = [math.pi/2, math.pi/3, 2*math.pi/3]
 
 
 # assuming known final values of two angles
@@ -79,8 +81,10 @@ basePos = [0,0,0]
 p.resetBasePositionAndOrientation(jacoId,basePos,[0,0,0,1])
 
 # to observe the robot from closer view; from a camera view
-Camera_Class = IntelCamera('NameofVideoIsHere')
-# to record a video from this camera; uncomment the line in the method to record
+# also to record a video from this camera; uncomment the line in the method to record
+NameofRecord = 'Obj1_RollPitchYaw'
+Record = 1
+Camera_Class = IntelCamera(NameofRecord, Record)
 Camera_Class.video()
 
 jacoEndEffectorIndex = 8
@@ -137,8 +141,8 @@ eulOrn = p.getEulerFromQuaternion(orn)
 Roll_0, Pitch_0, Yaw_0 = eulOrn 
 
 # initiate the arrays for concatanate later and saving
-End_Effector_Pos = np.array([pos])
-End_Effector_Orn = np.array([eulOrn])
+#End_Effector_Pos = np.array([pos])
+#End_Effector_Orn = np.array([eulOrn])
 
 
 # define the possible final desired positions of the end-effector to make corresponding automated re-orientation
@@ -191,16 +195,26 @@ Rzm = np.array([[np.cos(-rot_theta), -np.sin(-rot_theta), 0.], [np.sin(-rot_thet
 
 updateT = time.time()
 
-if logData:
-  dataDir = time.strftime("%Y%m%d")
-  if not os.path.exists(dataDir):
-    os.makedirs(dataDir)
-  trialInd = len(os.listdir(dataDir))
-  fn = dataDir + "/simdata00" + str(trialInd) + ".csv"
-      
-  logFile = open(fn, 'w', newline = '')
-  fileObj = csv.writer(logFile)
 
+# choose the name for recroding here
+if SaveData:
+  if not os.path.exists('Data'):
+    os.makedirs('Data')
+
+  DateDir = time.strftime("%Y%m%d")
+  if not os.path.exists('Data/'+ DateDir):
+    os.makedirs('Data/'+ DateDir)
+  
+  trialInd = len(os.listdir('Data/'+ DateDir))
+  Filename = 'Data/'+ DateDir + "/"+NameofRecord +"_"+ str(trialInd+1) + ".csv"
+  
+  logFile = open(Filename, 'w', newline = '')
+  fileObj = csv.writer(logFile)
+  fileObj.writerow(['Sample(20Hz)', 'X_Pos','Y_Pos', 'Z_Pos', 'Roll', 'Pitch', 'Yaw'])
+
+
+
+Sample = 0
 
 while 1:
  
@@ -226,12 +240,17 @@ while 1:
     Image_Info = Camera_Class.render()
     #print(Image_Info)
     
-    if logData:
+    if SaveData:
+      Sample += 1
       lsr = p.getLinkState(jacoId, jacoEndEffectorIndex)
-      lsc = p.getBasePositionAndOrientation(cube1Id)
+      #lsc = p.getBasePositionAndOrientation(cube1Id)
 
-      ln = [updateT, lsr[4][0],lsr[4][1],lsr[4][2], lsr[5][0],lsr[5][1], lsr[5][2], lsr[5][3], fing, lsc[0][0],lsc[0][1],lsc[0][2], lsc[1][0],lsc[1][1], lsc[1][2], lsc[1][3]] 
+      #ln = [updateT, lsr[4][0],lsr[4][1],lsr[4][2], lsr[5][0],lsr[5][1], lsr[5][2], lsr[5][3], fing, lsc[0][0],lsc[0][1],lsc[0][2], lsc[1][0],lsc[1][1], lsc[1][2], lsc[1][3]] 
+      
+      EulerAngles = p.getEulerFromQuaternion(orn)
+      ln = [Sample, lsr[4][0],lsr[4][1],lsr[4][2], EulerAngles[0],EulerAngles[1], EulerAngles[2]] 
       ln_rnd = [round(num, 4) for num in ln]
+      #print(ln_rnd)
       fileObj.writerow(ln_rnd)
 
     eulOrn = p.getEulerFromQuaternion(orn)
@@ -379,21 +398,21 @@ while 1:
     Convg_Rate = min([Convg_Rate_Obj1, Convg_Rate_Obj2, Convg_Rate_Obj3])
 
     if Convg_Rate <= 1:
-      #Roll = Roll_0 + (1-Convg_Rate)*(Roll_f-Roll_0)
+      Roll = Roll_0 + (1-Convg_Rate)*(Roll_f-Roll_0)
       Pitch = Pitch_0 + (1-Convg_Rate)*(Pitch_f-Pitch_0)
-      #Yaw = Yaw_0 + (1-Convg_Rate)*(Yaw_f-Yaw_0)
+      Yaw = Yaw_0 + (1-Convg_Rate)*(Yaw_f-Yaw_0)
       #print(Roll)
-      eulOrn = [Roll_0, Pitch, Yaw_0]
+      eulOrn = [Roll, Pitch, Yaw]
       orn = p.getQuaternionFromEuler(eulOrn)
     else:
       eulOrn = eulOrn
       orn = orn
 
     # record/save the pos and orn for the end-effector with this rate
-    End_Effector_Pos = np.concatenate((End_Effector_Pos, np.array([pos])), axis = 0)
-    End_Effector_Orn = np.concatenate((End_Effector_Orn, np.array([eulOrn])), axis = 0)
-    print(End_Effector_Pos)
-    print(End_Effector_Pos.shape)
+    #End_Effector_Pos = np.concatenate((End_Effector_Pos, np.array([pos])), axis = 0)
+    #End_Effector_Orn = np.concatenate((End_Effector_Orn, np.array([eulOrn])), axis = 0)
+    #print(End_Effector_Pos)
+    #print(End_Effector_Pos.shape)
 
     '''
     if pos[0] > wu[0]:
@@ -409,6 +428,7 @@ while 1:
     if pos[2] < wl[2]:
       pos[2] =  wl[2]
     '''
+    
     if fing > 1.35:
       fing = 1.35
     if fing < 0:
@@ -478,7 +498,7 @@ while 1:
 file.close()
 p.disconnect()
 
-# save the kinematics data of end-effector
+# save the kinematics data of the end-effector
 # save to csv files
-savetxt('~/Repositories/KinovaPyBullet/Data/End_Effector_Pos.csv', End_Effector_Pos, delimiter=',')
-savetxt('~/Repositories/KinovaPyBullet/Data/End_Effector_Orn.csv', End_Effector_Orn, delimiter=',')
+#savetxt('~/Repositories/KinovaPyBullet/Data/End_Effector_Pos.csv', End_Effector_Pos, delimiter=',')
+#savetxt('~/Repositories/KinovaPyBullet/Data/End_Effector_Orn.csv', End_Effector_Orn, delimiter=',')
