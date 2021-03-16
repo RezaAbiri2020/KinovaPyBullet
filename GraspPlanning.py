@@ -16,7 +16,7 @@ from Packages.Camera_Scripts.Camera import IntelCamera
 use2D   = 0
 logData = 0
 # activate record or not record the simulation data/ kinematics data
-SaveData = 1
+SaveData = 0
 
 if use2D == 1:
   from Packages.UITele_Scripts.cursorUITest_2D import UI
@@ -83,7 +83,7 @@ p.resetBasePositionAndOrientation(jacoId,basePos,[0,0,0,1])
 # to observe the robot from closer view; from a camera view
 # also to record a video from this camera; uncomment the line in the method to record
 NameofRecord = 'Obj1_RollPitchYaw'
-Record = 1
+Record = 0
 Camera_Class = IntelCamera(NameofRecord, Record)
 Camera_Class.video()
 
