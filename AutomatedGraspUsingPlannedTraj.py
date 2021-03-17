@@ -34,29 +34,18 @@ p.loadURDF("plane.urdf",[0,0,-.65])
 p.loadURDF("table/table.urdf", basePosition=[-0.4,0.0,-0.65])
 # p.loadURDF("tray/tray.urdf",[-0.8,-0.0,0.0])
 
-# assuming we know the pos and orientation of object
-# to have a good record of Roll angle change
-# Obj_Pos = [-0.15, -0.35, 0.2]
-# to have a good record of pitch or yaw angle change
 # consider of three objects on a circle
 Obj1_Pos = [-0.35, -0.35, 0.2]
 Obj2_Pos = [-0.5, 0, 0.2]
 Obj3_Pos = [-0.35, 0.35, 0.2]
 
-# these angles should be the corresponding euler angles for end-effector 
-# as Roll change; possible final value for grasping 
-#Obj_Ori = [math.pi/3, 0, 0]
-# as Pitch change; possible final value for grasping 
-#Obj_Ori = [0, math.pi/2, 0]
-# as Yaw change; possible final value for grasping 
-#Obj_Ori = [0, 0, -math.pi/2]
-
-# combination of changes in orientation angles
-Obj_Ori = [math.pi/2, math.pi/3, 2*math.pi/3]
-
-
-# assuming known final values of two angles
-#Obj_Ori = [-math.pi/2, math.pi/2, 0]
+# these angles should be the corresponding euler angles for final end-effector grasp pose 
+# possible final value for grasping obj1 [Roll, Pitch, Yaw] 
+Obj1_Orn = [math.pi/3, 0, 0]
+# possible final value for grasping obj2 [Roll, Pitch, Yaw]
+Obj2_Orn = [0, math.pi/2, 0]
+# possible final value for grasping obj3 [Roll, Pitch, Yaw]
+Obj3_Orn = [0, 0, -math.pi/2]
 
 p.loadURDF("dinnerware/cup/cup_small.urdf",Obj1_Pos)
 p.loadURDF("dinnerware/cup/cup_small.urdf",Obj2_Pos)
@@ -132,11 +121,12 @@ runUI = UI(logData)
 pos = list(ls[4])
 orn = list(ls[5])
 
-# grab the initial positions of the end-effector to make automated re-orientation
+# grab the initial positions of the end-effector for autonomous grasp
+# grab the initial euler orientations of the end-effector for autonomous grasp
 X_0 = pos[0]
 Y_0 = pos[1]
 Z_0 = pos[2]
-# grab the initial euler orientations of the end-effector
+
 eulOrn = p.getEulerFromQuaternion(orn)
 Roll_0, Pitch_0, Yaw_0 = eulOrn 
 
@@ -144,27 +134,44 @@ Roll_0, Pitch_0, Yaw_0 = eulOrn
 #End_Effector_Pos = np.array([pos])
 #End_Effector_Orn = np.array([eulOrn])
 
-
-# define the possible final desired positions of the end-effector to make corresponding automated re-orientation
+# define the possible final desired positions/orientation of the end-effector to make corresponding autonomous grasp
+# object 1
 X_f1 = Obj1_Pos[0]
 Y_f1 = Obj1_Pos[1]
 Z_f1 = Obj1_Pos[2]
-
+Roll_f1 = Obj1_Orn[0]
+Pitch_f1 = Obj1_Orn[1]
+Yaw_f1 = Obj1_Orn[2]
+# object 2
 X_f2 = Obj2_Pos[0]
 Y_f2 = Obj2_Pos[1]
 Z_f2 = Obj2_Pos[2]
-
+Roll_f2 = Obj2_Orn[0]
+Pitch_f2 = Obj2_Orn[1]
+Yaw_f2 = Obj2_Orn[2]
+# object 3
 X_f3 = Obj3_Pos[0]
 Y_f3 = Obj3_Pos[1]
 Z_f3 = Obj3_Pos[2]
+Roll_f3 = Obj3_Orn[0]
+Pitch_f3 = Obj3_Orn[1]
+Yaw_f3 = Obj3_Orn[2]
 
-# define the final desired orientations of the end-effector
-Roll_f = Obj_Ori[0] 
-Pitch_f = Obj_Ori[1]
-Yaw_f = Obj_Ori[2] 
+# define the final desired and arbitrary positions/orientations of the end-effector
+Obj_Pos = [-0.35, -0.35, 0.2]
+Obj_Orn = [math.pi/2, math.pi/3, 2*math.pi/3]
+X_f = Obj_Pos[0]
+Y_f = Obj_Pos[1]
+Z_f = Obj_Pos[2]
+Roll_f = Obj_Orn[0] 
+Pitch_f = Obj_Orn[1]
+Yaw_f = Obj_Orn[2] 
 
 
+# start of loading the planned trajectories
 i=0
+with open('./PlannedTrajectories/Kins_Pos.npy', 'rb') as f:
+    Kins_Pos = np.load(f)
 
 JP = list(rp[2:9])
 fing = 0
@@ -216,7 +223,7 @@ if SaveData:
 
 Sample = 0
 
-while 1:
+while Sample < Kins_Pos.shape[0]:
  
   
   i+=1
@@ -240,8 +247,8 @@ while 1:
     Image_Info = Camera_Class.render()
     #print(Image_Info)
     
+    Sample += 1
     if SaveData:
-      Sample += 1
       lsr = p.getLinkState(jacoId, jacoEndEffectorIndex)
       #lsc = p.getBasePositionAndOrientation(cube1Id)
 
@@ -358,13 +365,7 @@ while 1:
           pos[2] = pos[2] - dist 
           newPosInput = 1
         
-        # calculate the convergence rate for cartesian
-        Convg_Rate_Obj1 = (np.abs(X_f1-pos[0])+np.abs(Y_f1-pos[1])+np.abs(Z_f1-pos[2]))/(abs(X_f1-X_0)+abs(Y_f1-Y_0)+abs(Z_f1-Z_0))
-        Convg_Rate_Obj2 = (np.abs(X_f2-pos[0])+np.abs(Y_f2-pos[1])+np.abs(Z_f2-pos[2]))/(abs(X_f2-X_0)+abs(Y_f2-Y_0)+abs(Z_f2-Z_0))
-        Convg_Rate_Obj3 = (np.abs(X_f3-pos[0])+np.abs(Y_f3-pos[1])+np.abs(Z_f3-pos[2]))/(abs(X_f3-X_0)+abs(Y_f3-Y_0)+abs(Z_f3-Z_0))
-        
-        #print(Convg_Rate)
-
+      
       if inputMode == 1:
         if inputKey == 4:
           Rnew = Rrm.as_matrix() @ Rz
@@ -394,20 +395,13 @@ while 1:
     #Rn = R.from_matrix(Rnew)
     #orn = Rn.as_quat()
     
-    # adjust the orientation for automated grasping; a function of Cartesian not time!
-    Convg_Rate = min([Convg_Rate_Obj1, Convg_Rate_Obj2, Convg_Rate_Obj3])
-
-    if Convg_Rate <= 1:
-      Roll = Roll_0 + (1-Convg_Rate)*(Roll_f-Roll_0)
-      Pitch = Pitch_0 + (1-Convg_Rate)*(Pitch_f-Pitch_0)
-      Yaw = Yaw_0 + (1-Convg_Rate)*(Yaw_f-Yaw_0)
-      #print(Roll)
-      eulOrn = [Roll, Pitch, Yaw]
-      orn = p.getQuaternionFromEuler(eulOrn)
-    else:
-      eulOrn = eulOrn
-      orn = orn
-
+    # read the planned trajectories
+    newPosInput = 1
+    pos = [Kins_Pos[Sample][0], Kins_Pos[Sample][1], Kins_Pos[Sample][2]]
+    #print(pos)
+    eulOrn = [Kins_Pos[Sample][3], Kins_Pos[Sample][4], Kins_Pos[Sample][5]]
+    orn = p.getQuaternionFromEuler(eulOrn)
+    
     # record/save the pos and orn for the end-effector with this rate
     #End_Effector_Pos = np.concatenate((End_Effector_Pos, np.array([pos])), axis = 0)
     #End_Effector_Orn = np.concatenate((End_Effector_Orn, np.array([eulOrn])), axis = 0)
@@ -458,6 +452,7 @@ while 1:
                                                   maxNumIterations=100,
                                                   residualThreshold=.01)
         JP = list(jointPoses)
+        
       else:
         jointPoses = p.calculateInverseKinematics(jacoId,
                                                   jacoEndEffectorIndex,
@@ -466,6 +461,7 @@ while 1:
         JP = list(jointPoses)
 
   if (useSimulation):
+    
     JS = p.getJointStates(jacoId, [1, 2, 3, 4, 5, 6, 7, 9, 11, 13])
     j = 0
     for i in [2,3,4,5,6,7]:
