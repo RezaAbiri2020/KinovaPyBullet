@@ -35,9 +35,9 @@ p.loadURDF("table/table.urdf", basePosition=[-0.4,0.0,-0.65])
 # p.loadURDF("tray/tray.urdf",[-0.8,-0.0,0.0])
 
 # consider of three objects on a circle
-Obj1_Pos = [-0.35, -0.35, 0.2]
-Obj2_Pos = [-0.5, 0, 0.2]
-Obj3_Pos = [-0.35, 0.35, 0.2]
+Obj1_Pos = [-0.35, -0.35, 0]
+Obj2_Pos = [-0.5, 0, 0]
+Obj3_Pos = [-0.35, 0.35, 0]
 
 # these angles should be the corresponding euler angles for final end-effector grasp pose 
 # possible final value for grasping obj1 [Roll, Pitch, Yaw] 
@@ -71,7 +71,7 @@ p.resetBasePositionAndOrientation(jacoId,basePos,[0,0,0,1])
 
 # to observe the robot from closer view; from a camera view
 # also to record a video from this camera; uncomment the line in the method to record
-NameofRecord = 'Obj1_RollPitchYaw'
+NameofRecord = 'Obj1_ReplayKins'
 Record = 0
 Camera_Class = IntelCamera(NameofRecord, Record)
 Camera_Class.video()
@@ -95,7 +95,7 @@ for i in range(8):
   p.resetJointState(jacoId,i, rp[i])
 
 ls = p.getLinkState(jacoId, jacoEndEffectorIndex)
-p.setGravity(0,0,-0)
+p.setGravity(0,0,-10)
 
 t = 0.
 prevPose = [0, 0, 0]
@@ -170,7 +170,7 @@ Yaw_f = Obj_Orn[2]
 
 # start of loading the planned trajectories
 i=0
-with open('./PlannedTrajectories/Kins_Pos.npy', 'rb') as f:
+with open('./PlannedTrajectories/Kins_Pos_5.npy', 'rb') as f:
     Kins_Pos = np.load(f)
 
 JP = list(rp[2:9])
