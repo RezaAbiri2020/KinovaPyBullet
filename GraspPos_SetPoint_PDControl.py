@@ -41,7 +41,8 @@ Obj3_Pos = [-0.35, 0.35, 0]
 
 # these angles should be the corresponding euler angles for final end-effector grasp pose 
 # possible final value for grasping obj1 [Roll, Pitch, Yaw] 
-Obj1_Orn = [math.pi/3, 0, 0]
+Obj1_GraspPos = [-0.36, -0.34, 0.03]
+Obj1_GraspOrn = [3.0612682251627628, 1.5, 1.199751013269177]
 # possible final value for grasping obj2 [Roll, Pitch, Yaw]
 Obj2_Orn = [0, math.pi/2, 0]
 # possible final value for grasping obj3 [Roll, Pitch, Yaw]
@@ -71,7 +72,7 @@ p.resetBasePositionAndOrientation(jacoId,basePos,[0,0,0,1])
 
 # to observe the robot from closer view; from a camera view
 # also to record a video from this camera; uncomment the line in the method to record
-NameofRecord = 'Obj1_ReplayKins'
+NameofRecord = 'Obj1_SetPoint_PDController'
 Record = 0
 Camera_Class = IntelCamera(NameofRecord, Record)
 Camera_Class.video()
@@ -136,12 +137,12 @@ Roll_0, Pitch_0, Yaw_0 = eulOrn
 
 # define the possible final desired positions/orientation of the end-effector to make corresponding autonomous grasp
 # object 1
-X_f1 = Obj1_Pos[0]
-Y_f1 = Obj1_Pos[1]
-Z_f1 = Obj1_Pos[2]
-Roll_f1 = Obj1_Orn[0]
-Pitch_f1 = Obj1_Orn[1]
-Yaw_f1 = Obj1_Orn[2]
+X_f1 = Obj1_GraspPos[0]
+Y_f1 = Obj1_GraspPos[1]
+Z_f1 = Obj1_GraspPos[2]
+Roll_f1 = Obj1_GraspOrn[0]
+Pitch_f1 = Obj1_GraspOrn[1]
+Yaw_f1 = Obj1_GraspOrn[2]
 # object 2
 X_f2 = Obj2_Pos[0]
 Y_f2 = Obj2_Pos[1]
@@ -168,11 +169,8 @@ Pitch_f = Obj_Orn[1]
 Yaw_f = Obj_Orn[2] 
 
 
-# start of loading the planned trajectories
+# start i for later while loop
 i=0
-with open('./PlannedTrajectories/Kins_Pos_5.npy', 'rb') as f:
-    Kins_Pos = np.load(f)
-
 JP = list(rp[2:9])
 fing = 0
 wri = 0
@@ -222,10 +220,13 @@ if SaveData:
 
 
 Sample = 0
+delta_x = 1 # a big number for initialization
+delta_y = 1 # a big number for initialization
+delta_z = 1 # a big number for initialization
 
-while Sample < Kins_Pos.shape[0]:
- 
+while np.abs(delta_x) > 0.0001 or np.abs(delta_y) > 0.0001 or np.abs(delta_z) > 0.0001 :
   
+
   i+=1
   if (useRealTimeSimulation):
     dt = datetime.now()
@@ -394,20 +395,56 @@ while Sample < Kins_Pos.shape[0]:
 
     #Rn = R.from_matrix(Rnew)
     #orn = Rn.as_quat()
+
+    # read positions and orientations of end-effector
+    ls = p.getLinkState(jacoId, jacoEndEffectorIndex)
+    #print(ls)
+    pos = list(ls[4])
+    orn = list(ls[5])
+    eulOrn = p.getEulerFromQuaternion(orn)
     
-    # read the planned trajectories
+    # desgin of a PD controller for set-point control based on error
     newPosInput = 1
-    pos = [Kins_Pos[Sample][0], Kins_Pos[Sample][1], Kins_Pos[Sample][2]]
-    #print(pos)
-    eulOrn = [Kins_Pos[Sample][3], Kins_Pos[Sample][4], Kins_Pos[Sample][5]]
+    
+    delta_x = Obj1_GraspPos[0]-pos[0]
+    delta_y = Obj1_GraspPos[1]-pos[1]
+    delta_z = Obj1_GraspPos[2]-pos[2]
+
+    delta_roll = Obj1_GraspOrn[0]-pos[0] 
+    delta_pitch = Obj1_GraspOrn[1]-pos[1]
+    delta_yaw = Obj1_GraspOrn[2]-pos[2] 
+
+    # gain for controller
+    K_p1 = 30 # 30
+    k_d1 = 1 # 1
+    Gain_x = K_p1*delta_x + k_d1*delta_x/inputRate
+    Gain_y = K_p1*delta_y + k_d1*delta_y/inputRate
+    Gain_z = K_p1*delta_z + k_d1*delta_z/inputRate 
+    
+    K_p2 = 10  # 10
+    k_d2 = 1 # 1
+    Gain_roll = K_p2*delta_roll + k_d2*delta_roll/inputRate
+    Gain_pitch = K_p2*delta_pitch + k_d2*delta_pitch/inputRate
+    Gain_yaw = K_p2*delta_yaw + k_d2*delta_yaw/inputRate
+
+    # update the end-effector kinematics values
+    dv = 0.001 # gain for making small jump
+    Gain_x = Gain_x * dv 
+    Gain_y = Gain_y * dv
+    Gain_z = Gain_z * dv
+    Gain_roll = Gain_roll * dv 
+    Gain_pitch = Gain_pitch * dv 
+    Gain_yaw = Gain_yaw * dv
+
+    pos[0] = pos[0] + Gain_x 
+    pos[1] = pos[1] + Gain_y 
+    pos[2] = pos[2] + Gain_z 
+    #eulOrn = [eulOrn[0] + Gain_roll, eulOrn[1] + Gain_pitch , eulOrn[2] + Gain_yaw]
+    eulOrn = [eulOrn[0], eulOrn[1] + Gain_pitch , eulOrn[2]]
     orn = p.getQuaternionFromEuler(eulOrn)
     
-    # record/save the pos and orn for the end-effector with this rate
-    #End_Effector_Pos = np.concatenate((End_Effector_Pos, np.array([pos])), axis = 0)
-    #End_Effector_Orn = np.concatenate((End_Effector_Orn, np.array([eulOrn])), axis = 0)
-    #print(End_Effector_Pos)
-    #print(End_Effector_Pos.shape)
 
+    
     '''
     if pos[0] > wu[0]:
       pos[0] =  wu[0]
@@ -483,11 +520,10 @@ while Sample < Kins_Pos.shape[0]:
 
   ls = p.getLinkState(jacoId, jacoEndEffectorIndex)
   #print(ls)
+  # positions and orientations of end-effector
+  pos = list(ls[4])
+  orn = list(ls[5])
 
-  prevPose = tuple(pos)
-  prevPose1 = ls[4]
-  orn = ls[5]
-  hasPrevPose = 1
   newPosInput = 0
 
 
